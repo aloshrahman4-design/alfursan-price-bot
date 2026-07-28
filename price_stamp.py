@@ -17,8 +17,10 @@ MAX_BOX_WIDTH_RATIO = 0.85           # الصندوق ما يتعدى 85% من �
 
 
 def get_bold_font(size):
-    # نستخدم محرك Raqm المدمج بـ PIL، يسوي تشكيل عربي صحيح
-    # (اتصال الحروف + اتجاه RTL) بدون أي معالجة يدوية للنص.
+    # خط Cairo (وأغلب الخطوط العربية الحديثة) ما يحتوي أشكال حروف جاهزة
+    # بديلة - يعتمد بالكامل على محرك تشكيل حقيقي (raqm) يوصل الحروف
+    # ويرتبها صح وقت الرسم. لازم يكون raqm متوفر بالسيرفر (نضمنه عبر
+    # تثبيت نسخة بايثون مستقرة بملف runtime.txt).
     font = ImageFont.truetype(FONT_PATH, size, layout_engine=ImageFont.Layout.RAQM)
     try:
         font.set_variation_by_name("Bold")
@@ -28,7 +30,7 @@ def get_bold_font(size):
 
 
 def shape_arabic(text):
-    # النص يمرر كما هو، وRaqm يتكفل بالتشكيل والاتجاه أثناء الرسم
+    # النص يمرر كما هو، وRaqm يتكفل بالتشكيل والاتجاه الصحيح أثناء الرسم
     return text
 
 
