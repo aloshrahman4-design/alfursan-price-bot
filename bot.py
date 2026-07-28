@@ -84,6 +84,10 @@ def handle_text(message):
 
 def run_bot():
     log.info("بدء تشغيل بوت تيليجرام (polling)...")
+    try:
+        bot.remove_webhook()  # يضمن عدم وجود تعارض webhook/polling
+    except Exception:
+        log.exception("تعذر حذف الـ webhook (يمكن أصلاً مو موجود)")
     bot.infinity_polling(skip_pending=True)
 
 
