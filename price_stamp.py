@@ -1,15 +1,19 @@
 """
-Price Stamp Prototype
+Price Stamp
 يحدد أفضل زاوية فاضية بالصورة، ويحط صندوق أسود بنص ذهبي فيها.
 """
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageOps
 import numpy as np
+import os
 
-FONT_PATH = "/home/claude/fonts/Cairo.ttf"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+FONT_PATH = os.path.join(BASE_DIR, "Cairo.ttf")
 BOX_COLOR = (10, 10, 10, 235)       # أسود شبه معتم
 TEXT_COLOR = (255, 200, 40)         # ذهبي/أصفر
 PADDING = 28
 CORNER_MARGIN_RATIO = 0.03          # مسافة الصندوق عن حافة الصورة
+MAX_LINES = 4                        # حماية من نص طويل جداً يخرب التصميم
+MAX_BOX_WIDTH_RATIO = 0.85           # الصندوق ما يتعدى 85% من عرض الصورة
 
 
 def get_bold_font(size):
@@ -45,27 +49,39 @@ def find_best_corner(img, box_w, box_h):
 
 def wrap_text_lines(text):
     # النص ممكن يجي بأكثر من سطر (يفصلها المستخدم بـ \n)
-    return [line.strip() for line in text.split("\n") if line.strip()]
+    lines = [line.strip() for line in text.split("\n") if line.strip()]
+    return lines[:MAX_LINES]
 
 
 def draw_price_box(image_path, price_text, output_path):
-    img = Image.open(image_path).convert("RGBA")
+    img = Image.open(image_path)
+    img = ImageOps.exif_transpose(img)  # يصحح دوران الصورة حسب بيانات EXIF (صور الموبايل)
+    img = img.convert("RGBA")
     w, h = img.size
 
     lines = wrap_text_lines(price_text)
-    font_size = max(28, int(h * 0.045))
-    font = get_bold_font(font_size)
+    if not lines:
+        lines = ["بدون سعر"]  # حماية احتياطية، ما يفترض يصير لأن البوت يتحقق قبل
 
-    # حساب أبعاد النص لتحديد حجم الصندوق
+    font_size = max(28, int(h * 0.045))
+    max_box_w = int(w * MAX_BOX_WIDTH_RATIO)
+
     tmp_draw = ImageDraw.Draw(img)
-    shaped_lines = [shape_arabic(line) for line in lines]
-    line_sizes = [tmp_draw.textbbox((0, 0), sl, font=font) for sl in shaped_lines]
-    text_w = max(b[2] - b[0] for b in line_sizes)
+
+    # نقلل حجم الخط تدريجياً لو النص أعرض من المسموح بالصورة
+    while True:
+        font = get_bold_font(font_size)
+        shaped_lines = [shape_arabic(line) for line in lines]
+        line_sizes = [tmp_draw.textbbox((0, 0), sl, font=font) for sl in shaped_lines]
+        text_w = max(b[2] - b[0] for b in line_sizes)
+        box_w = text_w + PADDING * 2
+        if box_w <= max_box_w or font_size <= 14:
+            break
+        font_size -= 2
+
     line_h = max(b[3] - b[1] for b in line_sizes)
     line_spacing = int(line_h * 0.35)
     total_text_h = len(lines) * line_h + (len(lines) - 1) * line_spacing
-
-    box_w = text_w + PADDING * 2
     box_h = total_text_h + PADDING * 2
 
     corner, variances = find_best_corner(img, box_w, box_h)
